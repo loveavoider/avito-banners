@@ -9,25 +9,38 @@ import (
 	"github.com/loveavoider/avito-banners/merror"
 )
 
-func FromJsonToModel(c *gin.Context) (*model.Banner, *merror.MError) {
+type BannerConverter struct {
+}
 
-	res := model.Banner{}
+func (bc *BannerConverter) FromJsonToBanner(c *gin.Context) (*model.Banner, *merror.MError) {
+
+	res := model.Banner{
+		IsActive: true,
+	}
+
 	err := c.BindJSON(&res)
 
 	if err != nil {
 		return nil, &merror.MError{Message: "invalid json"}
 	}
 
-	if c.Param("id") != "" {
-		id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	return &res, nil
+}
 
-		if err != nil {
-			return nil, &merror.MError{Message: "incorrect id"}
-		}
+func (bc *BannerConverter) FromJsonToUpdateBanner(c *gin.Context) (*model.UpdateBanner, *merror.MError) {
 
-		if id != 0 {
-			res.ID = uint(id)
-		}
+	res := model.UpdateBanner{}
+
+	err := c.BindUri(&res)
+
+	if err != nil {
+		return nil, &merror.MError{Message: "incorrect id"}
+	}
+
+	err = c.BindJSON(&res)
+
+	if err != nil {
+		return nil, &merror.MError{Message: "invalid json"}
 	}
 
 	return &res, nil
@@ -55,6 +68,7 @@ func GetUserBanner(c *gin.Context) (*model.GetUserBanner, *merror.MError) {
 	}, nil
 }
 
+// need refactor
 func GetBanners(c *gin.Context) (*model.GetBanners, *merror.MError) {
 
 	required := make([]string, 0)
@@ -117,4 +131,8 @@ func inRequired(field string, required []string) bool {
 	}
 
 	return false
+}
+
+func NewBannerConverter() *BannerConverter {
+	return &BannerConverter{}
 }

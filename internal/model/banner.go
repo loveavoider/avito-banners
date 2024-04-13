@@ -3,17 +3,25 @@ package model
 import "time"
 
 type BannerContent struct {
-	Title string `json:"title"`
-	Text string `json:"text"`
-	Url string `json:"url"`
+	Title *string `json:"title"`
+	Text *string `json:"text"`
+	Url *string `json:"url"`
 }
 
 type Banner struct {
-	ID uint
+	ID uint `uri:"id"`
 	TagIds []uint `json:"tag_ids"`
 	FeatureId int `json:"feature_id"`
 	Content BannerContent `json:"content"`
 	IsActive bool `json:"is_active"`
+}
+
+type UpdateBanner struct {
+	ID uint `uri:"id" binding:"required"`
+	TagIds *[]uint `json:"tag_ids"`
+	FeatureId *int `json:"feature_id"`
+	Content *BannerContent `json:"content"`
+	IsActive *bool `json:"is_active"`
 }
 
 type BannerResponse struct {

@@ -1,6 +1,8 @@
 package banner
 
 import (
+	"log"
+
 	"github.com/loveavoider/avito-banners/internal/model"
 	"github.com/loveavoider/avito-banners/internal/repository"
 	"github.com/loveavoider/avito-banners/merror"
@@ -73,7 +75,7 @@ func (s *service) CreateBanner(banner model.Banner) (id uint, err *merror.MError
 	return
 }
 
-func (s *service) UpdateBanner(banner model.Banner) (err *merror.MError) {
+func (s *service) UpdateBanner(banner model.UpdateBanner) (err *merror.MError) {
 	err = s.bannerRepository.UpdateBanner(banner)
 
 	return
@@ -83,4 +85,29 @@ func (s *service) DeleteBanner(banner model.Banner) (err *merror.MError) {
 	err = s.bannerRepository.DeleteBanner(banner)
 
 	return
+}
+
+func (s *service) CheckUnique(featureId int, tagIds []uint) bool {
+	tags, err := s.bannerRepository.CheckUnique(featureId)
+	
+	log.Println(tags, tagIds)
+
+	if err != nil {
+		return false
+	}
+
+	store := make(map[uint]int)
+
+	for _, tagId := range tags {
+		store[tagId] += 1
+	}
+
+	for _, tagId := range tagIds {
+		store[tagId] += 1
+		if store[tagId] == 2 {
+			return false
+		}
+	}
+
+	return true
 }

@@ -3,9 +3,12 @@ package app
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/loveavoider/avito-banners/internal/api"
+	bannerConverter "github.com/loveavoider/avito-banners/internal/converter/banner"
 	"github.com/loveavoider/avito-banners/internal/repository"
 	"github.com/loveavoider/avito-banners/internal/service"
 	"github.com/loveavoider/avito-banners/internal/storage/database"
+	"github.com/loveavoider/avito-banners/internal/validator"
+	"github.com/loveavoider/avito-banners/internal/validator/banner"
 
 	bannerController "github.com/loveavoider/avito-banners/internal/api/banner"
 	"github.com/loveavoider/avito-banners/internal/api/middleware"
@@ -19,6 +22,7 @@ type serviceProvider struct {
 	bannerRepository repository.BannerRepository
 	bannerService service.BannerService
 	bannerController api.BannerController
+	bannerValidator validator.BannerValidator
 
 	tokenController api.TokenController
 	tokenService service.TokenService
@@ -50,10 +54,26 @@ func (s *serviceProvider) BannerController() api.BannerController {
 	if s.bannerController == nil {
 		s.bannerController = bannerController.NewController(
 			s.BannerService(),
+			s.BannerValidator(),
 		)
 	}
 	
 	return s.bannerController
+}
+
+func (s *serviceProvider) BannerConverter() bannerConverter.BannerConverter {
+	return *bannerConverter.NewBannerConverter()
+}
+
+func (s *serviceProvider) BannerValidator() validator.BannerValidator {
+	if s.bannerValidator == nil {
+		s.bannerValidator = banner.NewBannerValidator(
+			s.BannerConverter(),
+			s.BannerService(),
+		)
+	}
+
+	return s.bannerValidator
 }
 
 func (s *serviceProvider) TokenService() service.TokenService {

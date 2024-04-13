@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/loveavoider/avito-banners/internal/api/middleware"
 )
 
 type App struct {
@@ -35,9 +36,14 @@ func (a *App) initRouter() {
 	bannerController := a.serviceProvider.BannerController()
 
 	bannerGroup := a.router.Group("/banner").Use(a.serviceProvider.TokenValidator())
-	bannerGroup.POST("", bannerController.CreateBanner)
-	bannerGroup.PATCH("/:id", bannerController.UpdateBanner)
-	bannerGroup.DELETE("/:id", bannerController.DeleteBanner)
+
+	bannerGroup.Use(middleware.ForAdmin())
+	{
+		bannerGroup.POST("", bannerController.CreateBanner)
+		bannerGroup.PATCH("/:id", bannerController.UpdateBanner)
+		bannerGroup.DELETE("/:id", bannerController.DeleteBanner)
+	}
+
 	bannerGroup.GET("", bannerController.GetBanners)
 
 	userBannerGroup := a.router.Group("/user_banner").Use(a.serviceProvider.TokenValidator())

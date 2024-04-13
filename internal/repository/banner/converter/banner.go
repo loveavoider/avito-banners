@@ -9,6 +9,48 @@ func FromEntityToModel (banner entity.Banner) model.Banner {
 	return model.Banner{}
 }
 
+func BannerUpdateFromModelToEntity(updateBanner model.UpdateBanner) (entity.Banner, []string) {
+	res := entity.Banner{
+		ID: updateBanner.ID,
+	}
+
+	selectFields := make([]string, 0)
+
+	if updateBanner.TagIds != nil {
+		tags := make([]entity.Tag, len(*updateBanner.TagIds))
+
+		for i, tag := range *updateBanner.TagIds {
+			tags[i].ID = tag
+		}
+
+		res.Tags = &tags
+	}
+	
+	if updateBanner.Content != nil {
+		res.Content = *convertContent(*updateBanner.Content)
+
+		if res.Content.Title != nil {
+			selectFields = append(selectFields, "title")
+		}
+
+		if res.Content.Text != nil {
+			selectFields = append(selectFields, "text")
+		}
+
+		if res.Content.Url != nil {
+			selectFields = append(selectFields, "url")
+		}
+	}
+	
+
+	if updateBanner.FeatureId != nil {
+		res.FeatureId = *updateBanner.FeatureId
+		selectFields = append(selectFields, "feature_id")
+	}
+
+	return res, selectFields
+}
+
 func FromModelToEntity(banner model.Banner) entity.Banner {
 	res := entity.Banner{}
 
@@ -46,7 +88,7 @@ func FromEntityToResponse(banner entity.Banner) model.BannerResponse {
 		ID: banner.ID,
 		TagIds: tags,
 		FeatureId: banner.FeatureId,
-		Content: ConvertEntityContent(banner.Content.Title, banner.Content.Text, banner.Content.Url),
+		Content: ConvertEntityContent(*banner.Content.Title, *banner.Content.Text, *banner.Content.Url),
 		IsActive: banner.IsActive,
 		CreatedAt: banner.CreatedAt,
 		UpdatedAt: banner.UpdatedAt,
@@ -55,14 +97,14 @@ func FromEntityToResponse(banner entity.Banner) model.BannerResponse {
 
 func ConvertEntityContent(title string, text string, url string) model.BannerContent {
 	return model.BannerContent{
-		Title: title,
-		Text: text,
-		Url: url,
+		Title: &title,
+		Text: &text,
+		Url: &url,
 	}
 }
 
 func convertContent(content model.BannerContent) *entity.BannerContent {
-	
+
 	return &entity.BannerContent{
 		Title: content.Title,
 		Text: content.Text,

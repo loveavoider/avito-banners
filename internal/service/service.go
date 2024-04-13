@@ -9,9 +9,10 @@ import (
 type BannerService interface {
 	CreateBanner(model.Banner) (uint, *merror.MError)
 	DeleteBanner(model.Banner) *merror.MError
-	UpdateBanner(model.Banner) *merror.MError
+	UpdateBanner(model.UpdateBanner) *merror.MError
 	GetBanners(model.GetBanners) ([]model.BannerResponse, *merror.MError)
 	GetUserBanner(model.GetUserBanner) (model.BannerContent, *merror.MError)
+	CheckUnique(int, []uint) bool
 }
 
 type TokenService interface {

@@ -13,12 +13,15 @@ func TokenValidator(service service.TokenService) gin.HandlerFunc {
 		authorization := c.GetHeader("Authorization")
 		if !strings.HasPrefix(authorization, "Bearer ") {
 			c.String(http.StatusUnauthorized, "")
+			c.Abort()
+			return
 		}
 
 		splits := strings.Split(authorization, " ")
 
 		if len(splits) != 2 {
 			c.String(http.StatusUnauthorized, "")
+			c.Abort()
 			return
 		}
 
@@ -33,8 +36,11 @@ func TokenValidator(service service.TokenService) gin.HandlerFunc {
 		
 		if jwtErr != nil {
 			c.String(http.StatusUnauthorized, "")
+			c.Abort()
 			return
 		}
+
+		
 
 		c.Set("aud", aud[0])
 		c.Next()

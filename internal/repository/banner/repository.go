@@ -110,11 +110,15 @@ func (r *repository) CreateBanner(bannerModel model.Banner) (id uint, err *merro
 	return bannerEntitty.ID, nil
 }
 
-func (r *repository) UpdateBanner(bannerModel model.Banner) (err *merror.MError) {
+func (r *repository) UpdateBanner(bannerModel model.UpdateBanner) (err *merror.MError) {
 
-	bannerEntitty := converter.FromModelToEntity(bannerModel)
-
-	if len(*bannerEntitty.Tags) > 0 {
+	bannerEntitty, selectFields := converter.BannerUpdateFromModelToEntity(bannerModel)
+	
+	if len(selectFields) == 0 {
+		return &merror.MError{Message: "Нет полей на обновление"}
+	}
+	
+	if bannerEntitty.Tags != nil && len(*bannerEntitty.Tags) > 0 {
 		err := r.updateTags(&bannerEntitty)
 
 		if err != nil {
@@ -122,7 +126,7 @@ func (r *repository) UpdateBanner(bannerModel model.Banner) (err *merror.MError)
 		}
 	}
 
-	res := r.db.Save(&bannerEntitty)
+	res := r.db.Model(&bannerEntitty).Select(selectFields).Updates(bannerEntitty)
 
 	if res.Error != nil {
 		return &merror.MError{Message: "update banner error"}
@@ -141,6 +145,17 @@ func (r *repository) DeleteBanner(bannerModel model.Banner) (err *merror.MError)
 	}
 
 	return nil
+}
+
+func (r *repository) CheckUnique(featureId int) (tags []uint, err *merror.MError) {
+	subQuery := r.db.Select("id").Where("feature_id = ?", featureId).Table("banners")
+	res := r.db.Distinct("tag_id").Where("banner_id IN (?)", subQuery).Table("banner_tags").Find(&tags)
+
+	if res.Error != nil {
+		return tags, &merror.MError{Message: "check unique error"}
+	}
+
+	return tags, nil
 }
 
 func (r *repository) updateTags(bannerEntity *entity.Banner) (err *merror.MError) {

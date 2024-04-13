@@ -1,18 +1,18 @@
 package banner
 
 import (
-	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/loveavoider/avito-banners/internal/converter/banner"
 	"github.com/loveavoider/avito-banners/internal/model"
 	"github.com/loveavoider/avito-banners/internal/service"
+	"github.com/loveavoider/avito-banners/internal/validator"
 )
 
 type BannerController struct {
 	bannerService service.BannerService
+	bannerValidator validator.BannerValidator
 }
 
 func (bc BannerController) GetBanners(c *gin.Context) {
@@ -65,18 +65,11 @@ func (bc BannerController) GetUserBanner(c *gin.Context) {
 
 func (bc BannerController) CreateBanner(c *gin.Context) {
 
-	admin, status := bc.isAdmin(c)
+	modelBanner, err := bc.bannerValidator.ValidationCreateBanner(c)
 	
-	if !admin {
-		c.String(status, "")
-		return
-	}
-
-	modelBanner, err := banner.FromJsonToModel(c)
-
 	if err != nil {
 		c.JSON(
-			http.StatusBadRequest, 
+			http.StatusBadRequest,
 			gin.H{"error": err.Message},
 		)
 		return
@@ -97,14 +90,7 @@ func (bc BannerController) CreateBanner(c *gin.Context) {
 
 func (bc BannerController) UpdateBanner(c *gin.Context) {
 
-	admin, status := bc.isAdmin(c)
-
-	if !admin {
-		c.String(status, "")
-		return
-	}
-
-	modelBanner, err := banner.FromJsonToModel(c)
+	updateBanner, err := bc.bannerValidator.ValidationUpdateBanner(c)
 
 	if err != nil {
 		c.JSON(
@@ -114,7 +100,7 @@ func (bc BannerController) UpdateBanner(c *gin.Context) {
 		return
 	}
 
-	err = bc.bannerService.UpdateBanner(*modelBanner)
+	err = bc.bannerService.UpdateBanner(*updateBanner)
 
 	if err != nil {
 		c.JSON(
@@ -128,15 +114,9 @@ func (bc BannerController) UpdateBanner(c *gin.Context) {
 }
 
 func (bc BannerController) DeleteBanner(c *gin.Context) {
-
-	admin, status := bc.isAdmin(c)
-
-	if !admin {
-		c.String(status, "")
-		return
-	}
 	
-	id, goErr := strconv.ParseUint(c.Param("id"), 10, 32)
+	modelBanner := model.Banner{}
+	goErr := c.BindUri(&modelBanner)
 
 	if goErr != nil {
 		c.JSON(
@@ -145,8 +125,6 @@ func (bc BannerController) DeleteBanner(c *gin.Context) {
 		)
 		return
 	}
-
-	modelBanner := model.Banner{ID: uint(id)}
 
 	err := bc.bannerService.DeleteBanner(modelBanner)
 
@@ -161,24 +139,9 @@ func (bc BannerController) DeleteBanner(c *gin.Context) {
 	c.String(http.StatusNoContent, "")
 }
 
-func (bc BannerController) isAdmin(c *gin.Context) (isAdmin bool, status int) {
-	role, ok := c.Get("aud")
-
-	if !ok {
-		return false, http.StatusUnauthorized
-	}
-
-	log.Println("from isadmin", role)
-
-	if role != "admin" {
-		return false, http.StatusForbidden
-	}
-
-	return true, 0
-}
-
-func NewController(bs service.BannerService) *BannerController {
+func NewController(bs service.BannerService, bv validator.BannerValidator) *BannerController {
 	return &BannerController{
 		bannerService: bs,
+		bannerValidator: bv,
 	}
 }

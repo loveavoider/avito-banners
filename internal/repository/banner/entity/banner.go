@@ -21,7 +21,7 @@ type Tag struct {
 }
 
 type BannerContent struct {
-	Title string
-	Text string
-	Url string
+	Title *string
+	Text *string
+	Url *string
 }

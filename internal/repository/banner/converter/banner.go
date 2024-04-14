@@ -41,11 +41,15 @@ func BannerUpdateFromModelToEntity(updateBanner model.UpdateBanner) (entity.Bann
 			selectFields = append(selectFields, "url")
 		}
 	}
-	
 
 	if updateBanner.FeatureId != nil {
 		res.FeatureId = *updateBanner.FeatureId
 		selectFields = append(selectFields, "feature_id")
+	}
+
+	if updateBanner.IsActive != nil {
+		res.IsActive = *updateBanner.IsActive
+		selectFields = append(selectFields, "is_active")
 	}
 
 	return res, selectFields
@@ -68,6 +72,7 @@ func FromModelToEntity(banner model.Banner) entity.Banner {
 
 	res.FeatureId = banner.FeatureId
 	res.Tags = &tags
+	res.IsActive = banner.IsActive
 
 	return res
 }

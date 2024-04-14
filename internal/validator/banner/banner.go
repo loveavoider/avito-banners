@@ -1,8 +1,6 @@
 package banner
 
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
 	"github.com/loveavoider/avito-banners/internal/converter/banner"
 	"github.com/loveavoider/avito-banners/internal/model"
@@ -50,8 +48,6 @@ func (bv *BannerValidator) ValidationCreateBanner(c *gin.Context) (*model.Banner
 	}
 
 	unique := bv.bannerService.CheckUnique(banner.FeatureId, banner.TagIds)
-
-	log.Println(unique)
 	
 	if !unique {
 		return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
@@ -67,12 +63,42 @@ func (bv *BannerValidator) ValidationUpdateBanner(c *gin.Context) (*model.Update
 		return nil, &merror.MError{Message: err.Message}
 	}
 
-	if updateBanner.TagIds != nil && len(*updateBanner.TagIds) == 0 {
-		return nil, &merror.MError{Message: "Список тегов не должен быть пустым"}
+	if updateBanner.TagIds != nil && updateBanner.FeatureId != nil {
+		unique := bv.bannerService.CheckUnique(*updateBanner.FeatureId, *updateBanner.TagIds)
+	
+		if !unique {
+			return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
+		}
 	}
 
-	if updateBanner.FeatureId != nil && *updateBanner.FeatureId < 1 {
-		return nil, &merror.MError{Message: "Некорректный id фичи"}
+	if updateBanner.TagIds != nil {
+
+		if len(*updateBanner.TagIds) == 0 {
+			return nil, &merror.MError{Message: "Список тегов не должен быть пустым"}
+		}
+
+		for _, tag := range *updateBanner.TagIds {
+			if tag == 0 {
+				return nil, &merror.MError{Message: "Некорректный список тегов"}
+			}
+		}
+
+		unique := bv.bannerService.CheckUniqueByTags(*updateBanner.TagIds, updateBanner.ID)
+		if !unique {
+			return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
+		}
+	}
+
+	if updateBanner.FeatureId != nil { 
+		if *updateBanner.FeatureId < 1 {
+			return nil, &merror.MError{Message: "Некорректный id фичи"}
+		}
+
+		unique := bv.bannerService.CheckUniqueByFeature(*updateBanner.FeatureId, updateBanner.ID)
+
+		if !unique {
+			return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
+		}
 	}
 
 	if updateBanner.Content != nil {
@@ -86,14 +112,6 @@ func (bv *BannerValidator) ValidationUpdateBanner(c *gin.Context) (*model.Update
 	
 		if updateBanner.Content.Url != nil && len(*updateBanner.Content.Url) == 0 {
 			return nil, &merror.MError{Message: "Ссылка не должна быть пустой"}
-		}
-	}
-
-	if updateBanner.TagIds != nil && updateBanner.FeatureId != nil {
-		unique := bv.bannerService.CheckUnique(*updateBanner.FeatureId, *updateBanner.TagIds)
-	
-		if !unique {
-			return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
 		}
 	}
 

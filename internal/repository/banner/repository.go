@@ -18,13 +18,13 @@ import (
 )
 
 type repository struct {
-	db *gorm.DB
+	db    *gorm.DB
 	cache *redis.Client
 }
 
 func NewRepository(db *gorm.DB, cache *redis.Client) *repository {
 	return &repository{
-		db: db,
+		db:    db,
 		cache: cache,
 	}
 }
@@ -44,7 +44,7 @@ func (r *repository) GetBanners(getBanners model.GetBanners) (banners []model.Ba
 	}
 
 	res := r.db.Limit(limit).Offset(getBanners.Offset).Model(&entity.Banner{}).Preload("Tags").Find(&entityBanners, model)
-	
+
 	if len(entityBanners) == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return banners, &merror.MError{Message: "", Status: 404}
 	}
@@ -72,7 +72,7 @@ func (r *repository) GetBannersByTag(getBanners model.GetBanners) (banners []mod
 
 	var res *gorm.DB
 
-	if getBanners.Role == "admin" { 
+	if getBanners.Role == "admin" {
 		res = r.db.Limit(limit).Offset(getBanners.Offset).Where("ID IN (?)", subQuery).Preload("Tags").Find(&entityBanners)
 	} else {
 		res = r.db.Limit(limit).Offset(getBanners.Offset).Where("ID IN (?) AND is_active = true", subQuery).Preload("Tags").Find(&entityBanners)
@@ -124,7 +124,7 @@ func (r *repository) GetBannersByFeature(getBanners model.GetBanners) (banners [
 	return
 }
 
-func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache bool) (banner model.BannerResponse, err *merror.MError)   {
+func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache bool) (banner model.BannerResponse, err *merror.MError) {
 	entityBanner := entity.Banner{}
 	ctx := context.Background()
 
@@ -132,7 +132,7 @@ func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache
 
 	if useCache {
 		val, redisErr := r.cache.Get(ctx, cacheKey).Result()
-		
+
 		if redisErr == nil {
 			json.Unmarshal([]byte(val), &banner)
 			return
@@ -140,7 +140,7 @@ func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache
 	}
 
 	subQuery := r.db.Select("banner_id").Where("tag_id = ?", getBanners.TagId).Table("banner_tags")
-	
+
 	var res *gorm.DB
 
 	if getBanners.Role == "admin" {
@@ -160,7 +160,7 @@ func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache
 		banner = converter.FromEntityToResponse(entityBanner)
 
 		stringBanner, _ := json.Marshal(banner)
-		redisErr := r.cache.Set(ctx, cacheKey, stringBanner, 5 * time.Minute).Err()
+		redisErr := r.cache.Set(ctx, cacheKey, stringBanner, 5*time.Minute).Err()
 
 		if redisErr != nil {
 			log.Println(redisErr.Error())
@@ -207,13 +207,17 @@ func (r *repository) GetUserBanner(getUserBanner model.GetUserBanner, useCache b
 		content = converter.ConvertEntityContent(banner)
 
 		stringContent, _ := json.Marshal(content)
-		redisErr := r.cache.Set(ctx, cacheKey, stringContent, 5 * time.Minute).Err()
+		redisErr := r.cache.Set(ctx, cacheKey, stringContent, 5*time.Minute).Err()
 
 		if redisErr != nil {
 			log.Println(redisErr.Error())
 		}
 	}
-	
+
+	content.Title = banner.Content.Title
+	content.Text = banner.Content.Text
+	content.Url = banner.Content.Url
+
 	return
 }
 
@@ -232,16 +236,16 @@ func (r *repository) CreateBanner(bannerModel model.Banner) (id uint, err *merro
 func (r *repository) UpdateBanner(bannerModel model.UpdateBanner) (err *merror.MError) {
 
 	bannerEntitty, selectFields := converter.BannerUpdateFromModelToEntity(bannerModel)
-	
+
 	if len(selectFields) == 0 {
 		return &merror.MError{Message: "Нет полей на обновление"}
 	}
-	
+
 	if bannerEntitty.Tags != nil && len(*bannerEntitty.Tags) > 0 {
-		err := r.updateTags(&bannerEntitty)
+		err := r.db.Model(&bannerEntitty).Association("Tags").Replace(bannerEntitty.Tags)
 
 		if err != nil {
-			return err
+			return &merror.MError{Message: "update banner error"}
 		}
 	}
 
@@ -285,36 +289,41 @@ func (r *repository) CheckUnique(featureId int) (tags []uint, err *merror.MError
 	return tags, nil
 }
 
-func (r *repository) updateTags(bannerEntity *entity.Banner) (err *merror.MError) {
-	var tags []entity.Tag
-	gormErr := r.db.Model(&bannerEntity).Association("Tags").Find(&tags)
+func (r *repository) CheckUniqueByFeature(bannerId uint) (tags []uint, err *merror.MError) {
+	
+	res := r.db.Select("tag_id").Where("banner_id = ?", bannerId).Table("banner_tags").Find(&tags)
 
-	if gormErr != nil {
-		return &merror.MError{Message: "update tags error"}
+	if res.Error != nil {
+		return tags, &merror.MError{Message: "check unique error"}
 	}
 
-	tagsToDel := make([]entity.Tag, 0)
-
-	for _, tag := range tags {
-		if !r.haveTag(tag, *bannerEntity.Tags) {
-			tagsToDel = append(tagsToDel, tag)
-		}
-	}
-
-	if len(tagsToDel) > 0 {
-		r.db.Model(&bannerEntity).Association("Tags").Delete(tagsToDel)
-	}
-
-	return nil
+	return tags, nil
 }
 
-func (r *repository) haveTag(needTag entity.Tag, tags []entity.Tag) bool {
+func (r *repository) CheckUniqueByTags(tagIds []uint, bannerId uint) (isUnique bool, err *merror.MError) {
+	var features []int
 
-	for _, tag := range tags {
-		if tag.ID == needTag.ID {
-			return true
+	banner := model.Banner{ID: bannerId}
+	// найти фичу баннера
+	res := r.db.First(&banner)
+
+	if res.Error != nil {
+		return false, &merror.MError{Message: "check unique error"}
+	}
+
+	// найти фичи по тегам
+	subQuery := r.db.Distinct().Select("banner_id").Where("tag_id IN ", tagIds).Table("banner_tags")
+	res = r.db.Distinct("feature_id").Where("banner_id IN (?)", subQuery).Table("banners").Find(&features)
+
+	if res.Error != nil {
+		return false, &merror.MError{Message: "check unique error"}
+	}
+	
+	for _, feature := range features {
+		if feature == banner.FeatureId {
+			return false, nil
 		}
 	}
 
-	return false
+	return true, nil
 }

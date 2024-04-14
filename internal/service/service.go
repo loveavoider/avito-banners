@@ -13,6 +13,8 @@ type BannerService interface {
 	GetBanners(model.GetBanners) ([]model.BannerResponse, *merror.MError)
 	GetUserBanner(model.GetUserBanner) (model.BannerContent, *merror.MError)
 	CheckUnique(int, []uint) bool
+	CheckUniqueByFeature(int, uint) bool
+	CheckUniqueByTags([]uint, uint) bool
 }
 
 type TokenService interface {

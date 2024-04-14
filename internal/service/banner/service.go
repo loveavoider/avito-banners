@@ -92,6 +92,26 @@ func (s *service) DeleteBanner(banner model.Banner) (err *merror.MError) {
 	return
 }
 
+func (s *service) CheckUniqueByFeature(featureId int, bannerId uint) bool {
+	tags, err := s.bannerRepository.CheckUniqueByFeature(bannerId)
+
+	if err != nil {
+		return false
+	}
+	
+	return s.CheckUnique(featureId, tags)
+}
+
+func (s *service) CheckUniqueByTags(tagIds []uint, userId uint) bool {
+	isUnique, err := s.bannerRepository.CheckUniqueByTags(tagIds, userId)
+
+	if err != nil {
+		return false
+	}
+
+	return isUnique
+}
+
 func (s *service) CheckUnique(featureId int, tagIds []uint) bool {
 	tags, err := s.bannerRepository.CheckUnique(featureId)
 

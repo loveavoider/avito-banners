@@ -55,6 +55,36 @@ func (mr *MockBannerRepositoryMockRecorder) CheckUnique(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckUnique", reflect.TypeOf((*MockBannerRepository)(nil).CheckUnique), arg0)
 }
 
+// CheckUniqueByFeature mocks base method.
+func (m *MockBannerRepository) CheckUniqueByFeature(arg0 uint) ([]uint, *merror.MError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckUniqueByFeature", arg0)
+	ret0, _ := ret[0].([]uint)
+	ret1, _ := ret[1].(*merror.MError)
+	return ret0, ret1
+}
+
+// CheckUniqueByFeature indicates an expected call of CheckUniqueByFeature.
+func (mr *MockBannerRepositoryMockRecorder) CheckUniqueByFeature(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckUniqueByFeature", reflect.TypeOf((*MockBannerRepository)(nil).CheckUniqueByFeature), arg0)
+}
+
+// CheckUniqueByTags mocks base method.
+func (m *MockBannerRepository) CheckUniqueByTags(arg0 []uint, arg1 uint) (bool, *merror.MError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckUniqueByTags", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(*merror.MError)
+	return ret0, ret1
+}
+
+// CheckUniqueByTags indicates an expected call of CheckUniqueByTags.
+func (mr *MockBannerRepositoryMockRecorder) CheckUniqueByTags(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckUniqueByTags", reflect.TypeOf((*MockBannerRepository)(nil).CheckUniqueByTags), arg0, arg1)
+}
+
 // CreateBanner mocks base method.
 func (m *MockBannerRepository) CreateBanner(arg0 model.Banner) (uint, *merror.MError) {
 	m.ctrl.T.Helper()

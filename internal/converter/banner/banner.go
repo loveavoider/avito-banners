@@ -51,7 +51,7 @@ func GetUserBanner(c *gin.Context) (*model.GetUserBanner, *merror.MError) {
 	ginErr := c.BindQuery(&getUserBanner)
 
 	if ginErr != nil {
-		return nil, &merror.MError{Message: ""}
+		return nil, &merror.MError{Message: "некорректно указаны данные"}
 	}
 
 	if getUserBanner.FeatureId == 0 || getUserBanner.TagId == 0 {

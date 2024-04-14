@@ -1,21 +1,31 @@
 package banner
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
+	"time"
+
 	"github.com/loveavoider/avito-banners/internal/model"
 	"github.com/loveavoider/avito-banners/internal/repository/banner/converter"
 	"github.com/loveavoider/avito-banners/internal/repository/banner/entity"
 	"github.com/loveavoider/avito-banners/merror"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type repository struct {
 	db *gorm.DB
+	cache *redis.Client
 }
 
-func NewRepository(db *gorm.DB) *repository {
+func NewRepository(db *gorm.DB, cache *redis.Client) *repository {
 	return &repository{
 		db: db,
+		cache: cache,
 	}
 }
 
@@ -27,7 +37,17 @@ func (r *repository) GetBanners(getBanners model.GetBanners) (banners []model.Ba
 		limit = getBanners.Limit
 	}
 
-	res := r.db.Limit(limit).Offset(getBanners.Offset).Model(&entity.Banner{}).Preload("Tags").Find(&entityBanners)
+	model := &entity.Banner{}
+
+	if getBanners.Role == "user" {
+		model.IsActive = true
+	}
+
+	res := r.db.Limit(limit).Offset(getBanners.Offset).Model(&entity.Banner{}).Preload("Tags").Find(&entityBanners, model)
+	
+	if len(entityBanners) == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return banners, &merror.MError{Message: "", Status: 404}
+	}
 
 	if res.Error != nil {
 		return banners, &merror.MError{Message: "get all banners error"}
@@ -48,9 +68,21 @@ func (r *repository) GetBannersByTag(getBanners model.GetBanners) (banners []mod
 		limit = getBanners.Limit
 	}
 
-	gormErr := r.db.Limit(limit).Offset(getBanners.Offset).Model(&entity.Tag{ID: getBanners.TagId}).Association("Banners").Find(&entityBanners)
+	subQuery := r.db.Select("banner_id").Where("tag_id = ?", getBanners.TagId).Table("banner_tags")
 
-	if gormErr != nil {
+	var res *gorm.DB
+
+	if getBanners.Role == "admin" { 
+		res = r.db.Limit(limit).Offset(getBanners.Offset).Where("ID IN (?)", subQuery).Preload("Tags").Find(&entityBanners)
+	} else {
+		res = r.db.Limit(limit).Offset(getBanners.Offset).Where("ID IN (?) AND is_active = true", subQuery).Preload("Tags").Find(&entityBanners)
+	}
+
+	if len(entityBanners) == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return banners, &merror.MError{Message: "", Status: 404}
+	}
+
+	if res.Error != nil {
 		return banners, &merror.MError{Message: "get banners by tag error"}
 	}
 
@@ -69,8 +101,17 @@ func (r *repository) GetBannersByFeature(getBanners model.GetBanners) (banners [
 		limit = getBanners.Limit
 	}
 
-	res := r.db.Limit(limit).Offset(getBanners.Offset).Model(&entity.Banner{}).Preload("Tags").Find(&entityBanners, 
-			&entity.Banner{FeatureId: getBanners.FeatureId})
+	model := &entity.Banner{FeatureId: getBanners.FeatureId}
+
+	if getBanners.Role == "user" {
+		model.IsActive = true
+	}
+
+	res := r.db.Limit(limit).Offset(getBanners.Offset).Model(&entity.Banner{}).Preload("Tags").Find(&entityBanners, model)
+
+	if len(entityBanners) == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return banners, &merror.MError{Message: "", Status: 404}
+	}
 
 	if res.Error != nil {
 		return banners, &merror.MError{Message: "get banners by feature error"}
@@ -83,18 +124,96 @@ func (r *repository) GetBannersByFeature(getBanners model.GetBanners) (banners [
 	return
 }
 
-func (r *repository) GetUserBanner(tagId uint, featureId int) (content model.BannerResponse, err *merror.MError) {
-	banner := entity.Banner{}
+func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache bool) (banner model.BannerResponse, err *merror.MError)   {
+	entityBanner := entity.Banner{}
+	ctx := context.Background()
 
-	subQuery := r.db.Select("banner_id").Where("tag_id = ?", tagId).Table("banner_tags")
-	res := r.db.Where("ID IN (?) AND feature_id = ?", subQuery, featureId).First(&banner)
+	cacheKey := fmt.Sprintf("gUbWt_%d_%d", getBanners.FeatureId, getBanners.TagId)
+
+	if useCache {
+		val, redisErr := r.cache.Get(ctx, cacheKey).Result()
+		log.Println("from cache", val)
+		if redisErr == nil {
+			json.Unmarshal([]byte(val), &banner)
+			return
+		}
+	}
+
+	subQuery := r.db.Select("banner_id").Where("tag_id = ?", getBanners.TagId).Table("banner_tags")
+	
+	var res *gorm.DB
+
+	if getBanners.Role == "admin" {
+		res = r.db.Where("ID IN (?) AND feature_id = ?", subQuery, getBanners.FeatureId).Preload("Tags").First(&entityBanner)
+	} else {
+		res = r.db.Where("ID IN (?) AND feature_id = ? AND is_active = true", subQuery, getBanners.FeatureId).Preload("Tags").First(&entityBanner)
+	}
 
 	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return banner, &merror.MError{Message: "", Status: 404}
+		}
+		return banner, &merror.MError{Message: "get banner error"}
+	}
+
+	if useCache {
+		banner = converter.FromEntityToResponse(entityBanner)
+
+		stringBanner, _ := json.Marshal(banner)
+		redisErr := r.cache.Set(ctx, cacheKey, stringBanner, 5 * time.Minute).Err()
+
+		if redisErr != nil {
+			log.Println(redisErr.Error())
+		}
+	}
+
+	return
+}
+
+func (r *repository) GetUserBanner(getUserBanner model.GetUserBanner, useCache bool) (content model.BannerContent, err *merror.MError) {
+	banner := entity.Banner{}
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("gUb_%d_%d", getUserBanner.FeatureId, getUserBanner.TagId)
+
+	if useCache {
+		val, redisErr := r.cache.Get(ctx, cacheKey).Result()
+
+		if redisErr == nil {
+			json.Unmarshal([]byte(val), &content)
+			return
+		}
+	}
+
+	subQuery := r.db.Select("banner_id").Where("tag_id = ?", getUserBanner.TagId).Table("banner_tags")
+
+	var res *gorm.DB
+
+	if getUserBanner.Role == "admin" {
+		res = r.db.Where("ID IN (?) AND feature_id = ?", subQuery, getUserBanner.FeatureId).First(&banner)
+	} else {
+		res = r.db.Where("ID IN (?) AND feature_id = ? AND is_active = true", subQuery, getUserBanner.FeatureId).First(&banner)
+	}
+
+	if res.Error != nil {
+
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return content, &merror.MError{Message: "", Status: 404}
+		}
+
 		return content, &merror.MError{Message: "get banner error"}
 	}
 
-	content = converter.FromEntityToResponse(banner)
+	if useCache {
+		content = converter.ConvertEntityContent(banner)
 
+		stringContent, _ := json.Marshal(content)
+		redisErr := r.cache.Set(ctx, cacheKey, stringContent, 5 * time.Minute).Err()
+
+		if redisErr != nil {
+			log.Println(redisErr.Error())
+		}
+	}
+	
 	return
 }
 
@@ -128,6 +247,10 @@ func (r *repository) UpdateBanner(bannerModel model.UpdateBanner) (err *merror.M
 
 	res := r.db.Model(&bannerEntitty).Select(selectFields).Updates(bannerEntitty)
 
+	if res.RowsAffected == 0 {
+		return &merror.MError{Message: "", Status: 404}
+	}
+
 	if res.Error != nil {
 		return &merror.MError{Message: "update banner error"}
 	}
@@ -139,6 +262,10 @@ func (r *repository) DeleteBanner(bannerModel model.Banner) (err *merror.MError)
 	bannerEntitty := converter.FromModelToEntity(bannerModel)
 
 	res := r.db.Select(clause.Associations).Delete(&bannerEntitty)
+
+	if res.RowsAffected == 0 {
+		return &merror.MError{Message: "", Status: 404}
+	}
 
 	if res.Error != nil {
 		return &merror.MError{Message: "delete banner error"}

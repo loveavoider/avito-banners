@@ -4,7 +4,7 @@ start:
 	go run ./cmd/banner-manager/main.go
 
 build:
-	${DOCKER_COMPOSE} build
+	${DOCKER_COMPOSE} build --no-cache
 
 up:
 	${DOCKER_COMPOSE} up -d --remove-orphans 

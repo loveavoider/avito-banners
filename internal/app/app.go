@@ -37,14 +37,14 @@ func (a *App) initRouter() {
 
 	bannerGroup := a.router.Group("/banner").Use(a.serviceProvider.TokenValidator())
 
+	bannerGroup.GET("", bannerController.GetBanners)
+
 	bannerGroup.Use(middleware.ForAdmin())
 	{
 		bannerGroup.POST("", bannerController.CreateBanner)
 		bannerGroup.PATCH("/:id", bannerController.UpdateBanner)
 		bannerGroup.DELETE("/:id", bannerController.DeleteBanner)
 	}
-
-	bannerGroup.GET("", bannerController.GetBanners)
 
 	userBannerGroup := a.router.Group("/user_banner").Use(a.serviceProvider.TokenValidator())
 	userBannerGroup.GET("", bannerController.GetUserBanner)

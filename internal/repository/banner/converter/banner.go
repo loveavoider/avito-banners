@@ -88,23 +88,22 @@ func FromEntityToResponse(banner entity.Banner) model.BannerResponse {
 		ID: banner.ID,
 		TagIds: tags,
 		FeatureId: banner.FeatureId,
-		Content: ConvertEntityContent(*banner.Content.Title, *banner.Content.Text, *banner.Content.Url),
+		Content: ConvertEntityContent(banner),
 		IsActive: banner.IsActive,
 		CreatedAt: banner.CreatedAt,
 		UpdatedAt: banner.UpdatedAt,
 	}
 }
 
-func ConvertEntityContent(title string, text string, url string) model.BannerContent {
+func ConvertEntityContent(bannerEntity entity.Banner) model.BannerContent {
 	return model.BannerContent{
-		Title: &title,
-		Text: &text,
-		Url: &url,
+		Title: bannerEntity.Content.Title,
+		Text: bannerEntity.Content.Text,
+		Url: bannerEntity.Content.Url,
 	}
 }
 
 func convertContent(content model.BannerContent) *entity.BannerContent {
-
 	return &entity.BannerContent{
 		Title: content.Title,
 		Text: content.Text,

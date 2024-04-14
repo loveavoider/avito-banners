@@ -35,13 +35,16 @@ type BannerResponse struct {
 }
 
 type GetUserBanner struct {
-	TagId uint
-	FeatureId int
+	TagId uint `form:"tag_id" binding:"required"`
+	FeatureId int `form:"feature_id" binding:"required"`
+	UseLastRevision bool `form:"use_last_revision"`
+	Role string
 }
 
 type GetBanners struct {
-	TagId uint
-	FeatureId int
-	Limit int
-	Offset int
+	TagId uint `form:"tag_id"`
+	FeatureId int `form:"feature_id"`
+	Limit int `form:"limit"`
+	Offset int `form:"offset"`
+	Role string
 }

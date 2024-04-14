@@ -27,8 +27,13 @@ func (bc BannerController) GetBanners(c *gin.Context) {
 	}
 
 	banners, err := bc.bannerService.GetBanners(*getBanners)
-
+	
 	if err != nil {
+		if err.Status == 404 {
+			c.String(http.StatusNotFound, "")
+			return
+		}
+
 		c.JSON(
 			http.StatusInternalServerError,
 			gin.H{"error": err.Message},
@@ -53,6 +58,12 @@ func (bc BannerController) GetUserBanner(c *gin.Context) {
 	content, err := bc.bannerService.GetUserBanner(*getUserBanner)
 
 	if err != nil {
+
+		if err.Status == 404 {
+			c.String(http.StatusNotFound, "")
+			return
+		}
+
 		c.JSON(
 			http.StatusInternalServerError,
 			gin.H{"error": err.Message},
@@ -103,6 +114,11 @@ func (bc BannerController) UpdateBanner(c *gin.Context) {
 	err = bc.bannerService.UpdateBanner(*updateBanner)
 
 	if err != nil {
+		if err.Status == 404 {
+			c.String(http.StatusNotFound, "")
+			return
+		}
+
 		c.JSON(
 			http.StatusInternalServerError,
 			gin.H{"error": err.Message},
@@ -129,6 +145,12 @@ func (bc BannerController) DeleteBanner(c *gin.Context) {
 	err := bc.bannerService.DeleteBanner(modelBanner)
 
 	if err != nil {
+
+		if err.Status == 404 {
+			c.String(http.StatusNotFound, "")
+			return
+		}
+
 		c.JSON(
 			http.StatusInternalServerError,
 			gin.H{"error": err.Message},

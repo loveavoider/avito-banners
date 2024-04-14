@@ -6,6 +6,7 @@ import (
 	bannerConverter "github.com/loveavoider/avito-banners/internal/converter/banner"
 	"github.com/loveavoider/avito-banners/internal/repository"
 	"github.com/loveavoider/avito-banners/internal/service"
+	"github.com/loveavoider/avito-banners/internal/storage/cache"
 	"github.com/loveavoider/avito-banners/internal/storage/database"
 	"github.com/loveavoider/avito-banners/internal/validator"
 	"github.com/loveavoider/avito-banners/internal/validator/banner"
@@ -34,7 +35,7 @@ func newServiceProvider() *serviceProvider {
 
 func (s *serviceProvider) BannerRepository() repository.BannerRepository {
 	if s.bannerRepository == nil {
-		s.bannerRepository = bannerRepository.NewRepository(database.NewPostgres())
+		s.bannerRepository = bannerRepository.NewRepository(database.NewPostgres(), cache.NewRedis())
 	}
 
 	return s.bannerRepository

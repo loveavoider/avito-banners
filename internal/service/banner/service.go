@@ -23,10 +23,11 @@ func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.Banne
 	if getBanners.TagId != 0 {
 
 		if getBanners.FeatureId != 0 {
-			banner, err := s.bannerRepository.GetUserBanner(getBanners.TagId, getBanners.FeatureId)
+			useCache := getBanners.Role == "user"
+			banner, err := s.bannerRepository.GetUserBannerWithTags(getBanners, useCache)
 
 			if err != nil {
-				return banners, &merror.MError{Message: err.Message}
+				return banners, &merror.MError{Message: err.Message, Status: err.Status}
 			}
 
 			banners = append(banners, banner)
@@ -37,7 +38,7 @@ func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.Banne
 		banners, err = s.bannerRepository.GetBannersByTag(getBanners)
 
 		if err != nil {
-			return banners, &merror.MError{Message: err.Message}
+			return banners, &merror.MError{Message: err.Message, Status: err.Status}
 		}
 
 		return
@@ -47,7 +48,7 @@ func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.Banne
 		banners, err = s.bannerRepository.GetBannersByFeature(getBanners)
 
 		if err != nil {
-			return banners, &merror.MError{Message: err.Message}
+			return banners, &merror.MError{Message: err.Message, Status: err.Status}
 		}
 
 		return
@@ -56,17 +57,22 @@ func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.Banne
 	banners, err = s.bannerRepository.GetBanners(getBanners)
 
 	if err != nil {
-		return banners, &merror.MError{Message: err.Message}
+		return banners, &merror.MError{Message: err.Message, Status: err.Status}
 	}
 
 	return
 }
 
 func (s *service) GetUserBanner(getUserBanner model.GetUserBanner) (content model.BannerContent, err *merror.MError) {
-	banner, err := s.bannerRepository.GetUserBanner(getUserBanner.TagId, getUserBanner.FeatureId)
-	content = banner.Content
+	useCache := !getUserBanner.UseLastRevision && getUserBanner.Role == "user"
 
-	return
+	content, err = s.bannerRepository.GetUserBanner(getUserBanner, useCache)
+
+	if err != nil {
+		return content, err
+	}
+
+	return content, nil
 }
 
 func (s *service) CreateBanner(banner model.Banner) (id uint, err *merror.MError) {

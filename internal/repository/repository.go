@@ -12,6 +12,7 @@ type BannerRepository interface {
 	GetBanners(model.GetBanners) ([]model.BannerResponse, *merror.MError)
 	GetBannersByTag(model.GetBanners) ([]model.BannerResponse, *merror.MError)
 	GetBannersByFeature(model.GetBanners) ([]model.BannerResponse, *merror.MError)
-	GetUserBanner(uint, int) (model.BannerResponse, *merror.MError)
+	GetUserBanner(model.GetUserBanner, bool) (model.BannerContent, *merror.MError)
+	GetUserBannerWithTags(model.GetBanners, bool) (model.BannerResponse, *merror.MError)
 	CheckUnique(int) ([]uint, *merror.MError)
 }

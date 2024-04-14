@@ -29,7 +29,7 @@ type serviceProvider struct {
 	tokenService service.TokenService
 }
 
-func newServiceProvider() *serviceProvider {
+func NewServiceProvider() *serviceProvider {
 	return &serviceProvider{}
 }
 

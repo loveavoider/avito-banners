@@ -40,9 +40,8 @@ func TokenValidator(service service.TokenService) gin.HandlerFunc {
 			return
 		}
 
-		
-
 		c.Set("aud", aud[0])
+		
 		c.Next()
 	}
 }

@@ -1,8 +1,6 @@
 package banner
 
 import (
-	"log"
-
 	"github.com/loveavoider/avito-banners/internal/model"
 	"github.com/loveavoider/avito-banners/internal/repository"
 	"github.com/loveavoider/avito-banners/merror"
@@ -24,6 +22,7 @@ func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.Banne
 
 		if getBanners.FeatureId != 0 {
 			useCache := getBanners.Role == "user"
+			
 			banner, err := s.bannerRepository.GetUserBannerWithTags(getBanners, useCache)
 
 			if err != nil {
@@ -95,8 +94,6 @@ func (s *service) DeleteBanner(banner model.Banner) (err *merror.MError) {
 
 func (s *service) CheckUnique(featureId int, tagIds []uint) bool {
 	tags, err := s.bannerRepository.CheckUnique(featureId)
-	
-	log.Println(tags, tagIds)
 
 	if err != nil {
 		return false

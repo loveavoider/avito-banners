@@ -24,18 +24,22 @@ func NewApp() *App {
 }
 
 func (a *App) initServiceProvider() {
-	a.serviceProvider = newServiceProvider()
+	a.serviceProvider = NewServiceProvider()
 }
 
 func (a *App) initRouter() {
-	a.router = gin.Default()
+	a.router = GetRouter(*a.serviceProvider)
+}
 
-	a.router.Use(gin.Recovery())
-	a.router.Use(gin.Logger())
+func GetRouter(serviceProvider serviceProvider) *gin.Engine {
+	router := gin.Default()
 
-	bannerController := a.serviceProvider.BannerController()
+	router.Use(gin.Recovery())
+	router.Use(gin.Logger())
 
-	bannerGroup := a.router.Group("/banner").Use(a.serviceProvider.TokenValidator())
+	bannerController := serviceProvider.BannerController()
+
+	bannerGroup := router.Group("/banner").Use(serviceProvider.TokenValidator())
 
 	bannerGroup.GET("", bannerController.GetBanners)
 
@@ -46,13 +50,15 @@ func (a *App) initRouter() {
 		bannerGroup.DELETE("/:id", bannerController.DeleteBanner)
 	}
 
-	userBannerGroup := a.router.Group("/user_banner").Use(a.serviceProvider.TokenValidator())
+	userBannerGroup := router.Group("/user_banner").Use(serviceProvider.TokenValidator())
 	userBannerGroup.GET("", bannerController.GetUserBanner)
 
-	tokenController := a.serviceProvider.TokenController()
+	tokenController := serviceProvider.TokenController()
 
-	tokenGroup := a.router.Group("/token")
+	tokenGroup := router.Group("/token")
 	tokenGroup.GET("", tokenController.GetToken)
+
+	return router
 }
 
 func (a *App) Start() {

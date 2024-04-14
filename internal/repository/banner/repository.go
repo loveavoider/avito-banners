@@ -132,7 +132,7 @@ func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache
 
 	if useCache {
 		val, redisErr := r.cache.Get(ctx, cacheKey).Result()
-		log.Println("from cache", val)
+		
 		if redisErr == nil {
 			json.Unmarshal([]byte(val), &banner)
 			return

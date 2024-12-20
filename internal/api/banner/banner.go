@@ -1,6 +1,8 @@
 package banner
 
 import (
+	"errors"
+	"github.com/loveavoider/avito-banners/internal/api/util"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,8 +12,10 @@ import (
 	"github.com/loveavoider/avito-banners/internal/validator"
 )
 
+// TODO накидать валидаторы куда не хватает, чтобы всё одинаково выглядело
+
 type BannerController struct {
-	bannerService service.BannerService
+	bannerService   service.BannerService
 	bannerValidator validator.BannerValidator
 }
 
@@ -19,25 +23,19 @@ func (bc BannerController) GetBanners(c *gin.Context) {
 	getBanners, err := banner.GetBanners(c)
 
 	if err != nil {
-		c.JSON(
-			http.StatusBadRequest,
-			gin.H{"error": err.Message},
-		)
+		util.WriteError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	banners, err := bc.bannerService.GetBanners(*getBanners)
-	
+
 	if err != nil {
-		if err.Status == 404 {
-			c.String(http.StatusNotFound, "")
+		if errors.Is(err, service.BannersNotFound) {
+			util.WriteError(c, http.StatusNotFound, err)
 			return
 		}
 
-		c.JSON(
-			http.StatusInternalServerError,
-			gin.H{"error": err.Message},
-		)
+		util.WriteError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -48,10 +46,7 @@ func (bc BannerController) GetUserBanner(c *gin.Context) {
 	getUserBanner, err := banner.GetUserBanner(c)
 
 	if err != nil {
-		c.JSON(
-			http.StatusBadRequest,
-			gin.H{"error": err.Message},
-		)
+		util.WriteError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -59,15 +54,12 @@ func (bc BannerController) GetUserBanner(c *gin.Context) {
 
 	if err != nil {
 
-		if err.Status == 404 {
-			c.String(http.StatusNotFound, "")
+		if errors.Is(err, service.BannersNotFound) {
+			util.WriteError(c, http.StatusNotFound, err)
 			return
 		}
 
-		c.JSON(
-			http.StatusInternalServerError,
-			gin.H{"error": err.Message},
-		)
+		util.WriteError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -77,22 +69,16 @@ func (bc BannerController) GetUserBanner(c *gin.Context) {
 func (bc BannerController) CreateBanner(c *gin.Context) {
 
 	modelBanner, err := bc.bannerValidator.ValidationCreateBanner(c)
-	
+
 	if err != nil {
-		c.JSON(
-			http.StatusBadRequest,
-			gin.H{"error": err.Message},
-		)
+		util.WriteError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	id, err := bc.bannerService.CreateBanner(*modelBanner)
 
 	if err != nil {
-		c.JSON(
-			http.StatusInternalServerError,
-			gin.H{"error": err.Message},
-		)
+		util.WriteError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -103,26 +89,17 @@ func (bc BannerController) UpdateBanner(c *gin.Context) {
 
 	updateBanner, err := bc.bannerValidator.ValidationUpdateBanner(c)
 
-	if err != nil {
-		c.JSON(
-			http.StatusBadRequest, 
-			gin.H{"error": err.Message},
-		)
-		return
-	}
+	util.WriteError(c, http.StatusBadRequest, err)
 
 	err = bc.bannerService.UpdateBanner(*updateBanner)
 
 	if err != nil {
-		if err.Status == 404 {
-			c.String(http.StatusNotFound, "")
+		if errors.Is(err, service.BannersNotFound) {
+			util.WriteError(c, http.StatusNotFound, err)
 			return
 		}
 
-		c.JSON(
-			http.StatusInternalServerError,
-			gin.H{"error": err.Message},
-		)
+		util.WriteError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -130,31 +107,22 @@ func (bc BannerController) UpdateBanner(c *gin.Context) {
 }
 
 func (bc BannerController) DeleteBanner(c *gin.Context) {
-	
+
 	modelBanner := model.Banner{}
-	goErr := c.BindUri(&modelBanner)
+	err := c.BindUri(&modelBanner)
 
-	if goErr != nil {
-		c.JSON(
-			http.StatusBadRequest,
-			gin.H{"error": "incorrect id"},
-		)
-		return
-	}
+	util.WriteError(c, http.StatusBadRequest, err)
 
-	err := bc.bannerService.DeleteBanner(modelBanner)
+	err = bc.bannerService.DeleteBanner(modelBanner)
 
 	if err != nil {
 
-		if err.Status == 404 {
-			c.String(http.StatusNotFound, "")
+		if errors.Is(err, service.BannersNotFound) {
+			util.WriteError(c, http.StatusNotFound, err)
 			return
 		}
 
-		c.JSON(
-			http.StatusInternalServerError,
-			gin.H{"error": err.Message},
-		)
+		util.WriteError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -163,7 +131,7 @@ func (bc BannerController) DeleteBanner(c *gin.Context) {
 
 func NewController(bs service.BannerService, bv validator.BannerValidator) *BannerController {
 	return &BannerController{
-		bannerService: bs,
+		bannerService:   bs,
 		bannerValidator: bv,
 	}
 }

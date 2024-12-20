@@ -1,117 +1,130 @@
 package banner
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/loveavoider/avito-banners/internal/converter/banner"
 	"github.com/loveavoider/avito-banners/internal/model"
 	"github.com/loveavoider/avito-banners/internal/service"
-	"github.com/loveavoider/avito-banners/merror"
 )
 
 type BannerValidator struct {
 	bannerConverter banner.BannerConverter
-	bannerService service.BannerService
+	bannerService   service.BannerService
 }
 
-func (bv *BannerValidator) ValidationCreateBanner(c *gin.Context) (*model.Banner, *merror.MError) {
+var (
+	EmptyTagList       = errors.New("tag list should not be empty")
+	EmptyTitle         = errors.New("title should not be empty")
+	EmptyText          = errors.New("text should not be empty")
+	EmptyUrl           = errors.New("url should not be empty")
+	IncorrectTagList   = errors.New("incorrect tag list")
+	IncorrectFeatureId = errors.New("incorrect feature id")
+	IncorrectJson      = errors.New("incorrect json")
+	UniqueTagFeature   = errors.New("combination tag + feature should be unique")
+)
 
-	banner, err := bv.bannerConverter.FromJsonToBanner(c)
+// TODO вынести общие функции в одну
+
+func (bv *BannerValidator) ValidationCreateBanner(c *gin.Context) (*model.Banner, error) {
+
+	b, err := bv.bannerConverter.FromJsonToBanner(c)
 
 	if err != nil {
-		return nil, &merror.MError{Message: err.Message}
+		return nil, IncorrectJson
 	}
 
-	if len(banner.TagIds) == 0 {
-		return nil, &merror.MError{Message: "Список тегов не должен быть пустым"}
+	if len(b.TagIds) == 0 {
+		return nil, EmptyTagList
 	}
 
-	for _, tag := range banner.TagIds {
+	for _, tag := range b.TagIds {
 		if tag == 0 {
-			return nil, &merror.MError{Message: "Некорректный список тегов"}
+			return nil, IncorrectTagList
 		}
 	}
 
-	if banner.FeatureId < 1 {
-		return nil, &merror.MError{Message: "Некорректный id фичи"}
+	if b.FeatureId < 1 {
+		return nil, IncorrectFeatureId
 	}
 
-	if banner.Content.Title == nil || len(*banner.Content.Title) == 0 {
-		return nil, &merror.MError{Message: "Заголовок не должен быть пустым"}
+	if b.Content.Title == nil || len(*b.Content.Title) == 0 {
+		return nil, EmptyTitle
 	}
 
-	if banner.Content.Text == nil || len(*banner.Content.Text) == 0 {
-		return nil, &merror.MError{Message: "Текст не должен быть пустым"}
+	if b.Content.Text == nil || len(*b.Content.Text) == 0 {
+		return nil, EmptyText
 	}
 
-	if banner.Content.Url == nil || len(*banner.Content.Url) == 0 {
-		return nil, &merror.MError{Message: "Ссылка не должна быть пустой"}
+	if b.Content.Url == nil || len(*b.Content.Url) == 0 {
+		return nil, EmptyUrl
 	}
 
-	unique := bv.bannerService.CheckUnique(banner.FeatureId, banner.TagIds)
-	
+	unique := bv.bannerService.CheckUnique(b.FeatureId, b.TagIds)
+
 	if !unique {
-		return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
+		return nil, UniqueTagFeature
 	}
 
-	return banner, nil
+	return b, nil
 }
 
-func (bv *BannerValidator) ValidationUpdateBanner(c *gin.Context) (*model.UpdateBanner, *merror.MError) {
+func (bv *BannerValidator) ValidationUpdateBanner(c *gin.Context) (*model.UpdateBanner, error) {
 	updateBanner, err := bv.bannerConverter.FromJsonToUpdateBanner(c)
 
 	if err != nil {
-		return nil, &merror.MError{Message: err.Message}
+		return nil, IncorrectJson
 	}
 
 	if updateBanner.TagIds != nil && updateBanner.FeatureId != nil {
 		unique := bv.bannerService.CheckUnique(*updateBanner.FeatureId, *updateBanner.TagIds)
-	
+
 		if !unique {
-			return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
+			return nil, UniqueTagFeature
 		}
 	}
 
 	if updateBanner.TagIds != nil {
 
 		if len(*updateBanner.TagIds) == 0 {
-			return nil, &merror.MError{Message: "Список тегов не должен быть пустым"}
+			return nil, EmptyTagList
 		}
 
 		for _, tag := range *updateBanner.TagIds {
 			if tag == 0 {
-				return nil, &merror.MError{Message: "Некорректный список тегов"}
+				return nil, IncorrectTagList
 			}
 		}
 
 		unique := bv.bannerService.CheckUniqueByTags(*updateBanner.TagIds, updateBanner.ID)
 		if !unique {
-			return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
+			return nil, UniqueTagFeature
 		}
 	}
 
-	if updateBanner.FeatureId != nil { 
+	if updateBanner.FeatureId != nil {
 		if *updateBanner.FeatureId < 1 {
-			return nil, &merror.MError{Message: "Некорректный id фичи"}
+			return nil, IncorrectFeatureId
 		}
 
 		unique := bv.bannerService.CheckUniqueByFeature(*updateBanner.FeatureId, updateBanner.ID)
 
 		if !unique {
-			return nil, &merror.MError{Message: "Набор feature_id + tag_id должен быть уникальным"}
+			return nil, UniqueTagFeature
 		}
 	}
 
 	if updateBanner.Content != nil {
 		if updateBanner.Content.Title != nil && len(*updateBanner.Content.Title) == 0 {
-			return nil, &merror.MError{Message: "Заголовок не должен быть пустым"}
+			return nil, EmptyTitle
 		}
-	
+
 		if updateBanner.Content.Text != nil && len(*updateBanner.Content.Text) == 0 {
-			return nil, &merror.MError{Message: "Текст не должен быть пустым"}
+			return nil, EmptyText
 		}
-	
+
 		if updateBanner.Content.Url != nil && len(*updateBanner.Content.Url) == 0 {
-			return nil, &merror.MError{Message: "Ссылка не должна быть пустой"}
+			return nil, EmptyUrl
 		}
 	}
 
@@ -121,6 +134,6 @@ func (bv *BannerValidator) ValidationUpdateBanner(c *gin.Context) (*model.Update
 func NewBannerValidator(bannerConverter banner.BannerConverter, bannerService service.BannerService) *BannerValidator {
 	return &BannerValidator{
 		bannerConverter: bannerConverter,
-		bannerService: bannerService,
+		bannerService:   bannerService,
 	}
 }

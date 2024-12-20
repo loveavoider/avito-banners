@@ -1,15 +1,15 @@
 package banner
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/loveavoider/avito-banners/internal/model"
-	"github.com/loveavoider/avito-banners/merror"
 )
 
 type BannerConverter struct {
 }
 
-func (bc *BannerConverter) FromJsonToBanner(c *gin.Context) (*model.Banner, *merror.MError) {
+func (bc *BannerConverter) FromJsonToBanner(c *gin.Context) (*model.Banner, error) {
 
 	res := model.Banner{
 		IsActive: true,
@@ -18,59 +18,62 @@ func (bc *BannerConverter) FromJsonToBanner(c *gin.Context) (*model.Banner, *mer
 	err := c.BindJSON(&res)
 
 	if err != nil {
-		return nil, &merror.MError{Message: "invalid json"}
+		return nil, err
 	}
 
 	return &res, nil
 }
 
-func (bc *BannerConverter) FromJsonToUpdateBanner(c *gin.Context) (*model.UpdateBanner, *merror.MError) {
+func (bc *BannerConverter) FromJsonToUpdateBanner(c *gin.Context) (*model.UpdateBanner, error) {
 
 	res := model.UpdateBanner{}
 
 	err := c.BindUri(&res)
 
 	if err != nil {
-		return nil, &merror.MError{Message: "incorrect id"}
+		return nil, err
 	}
 
 	err = c.BindJSON(&res)
 
 	if err != nil {
-		return nil, &merror.MError{Message: "invalid json"}
+		return nil, err
 	}
 
 	return &res, nil
 }
 
-func GetUserBanner(c *gin.Context) (*model.GetUserBanner, *merror.MError) {
+func GetUserBanner(c *gin.Context) (*model.GetUserBanner, error) {
 
 	role, _ := c.Get("aud")
 
-	getUserBanner := &model.GetUserBanner{Role: role.(string)}
-	ginErr := c.BindQuery(&getUserBanner)
+	// TODO throw 401
 
-	if ginErr != nil {
-		return nil, &merror.MError{Message: "некорректно указаны данные"}
+	getUserBanner := &model.GetUserBanner{Role: role.(string)}
+	err := c.BindQuery(&getUserBanner)
+
+	// TODO перенести в валидатор
+
+	if err != nil {
+		return nil, err
 	}
 
 	if getUserBanner.FeatureId == 0 || getUserBanner.TagId == 0 {
-		return nil, &merror.MError{Message: "неверно указан id"}
+		return nil, errors.New("incorrect id or tag id")
 	}
-	
 
 	return getUserBanner, nil
 }
 
-func GetBanners(c *gin.Context) (*model.GetBanners, *merror.MError) {
+func GetBanners(c *gin.Context) (*model.GetBanners, error) {
 
 	role, _ := c.Get("aud")
 
 	getBanners := &model.GetBanners{Role: role.(string)}
-	ginErr := c.BindQuery(&getBanners)
+	err := c.BindQuery(&getBanners)
 
-	if ginErr != nil {
-		return nil, &merror.MError{Message: ""}
+	if err != nil {
+		return nil, err
 	}
 
 	return getBanners, nil

@@ -3,18 +3,15 @@ package converter
 import (
 	"github.com/loveavoider/avito-banners/internal/model"
 	"github.com/loveavoider/avito-banners/internal/repository/banner/entity"
+	"reflect"
 )
-
-func FromEntityToModel (banner entity.Banner) model.Banner {
-	return model.Banner{}
-}
 
 func BannerUpdateFromModelToEntity(updateBanner model.UpdateBanner) (entity.Banner, []string) {
 	res := entity.Banner{
 		ID: updateBanner.ID,
 	}
 
-	selectFields := make([]string, 0)
+	selectFields := make([]string, 0, reflect.ValueOf(updateBanner).NumField())
 
 	if updateBanner.TagIds != nil {
 		tags := make([]entity.Tag, len(*updateBanner.TagIds))
@@ -25,7 +22,7 @@ func BannerUpdateFromModelToEntity(updateBanner model.UpdateBanner) (entity.Bann
 
 		res.Tags = &tags
 	}
-	
+
 	if updateBanner.Content != nil {
 		res.Content = *convertContent(*updateBanner.Content)
 
@@ -59,7 +56,7 @@ func FromModelToEntity(banner model.Banner) entity.Banner {
 	res := entity.Banner{}
 
 	tags := make([]entity.Tag, len(banner.TagIds))
-	
+
 	if banner.ID != 0 {
 		res.ID = banner.ID
 	}
@@ -81,20 +78,20 @@ func FromEntityToResponse(banner entity.Banner) model.BannerResponse {
 	var tags []uint
 
 	if banner.Tags != nil {
-		
+
 		tags = make([]uint, len(*banner.Tags))
 
 		for i, tag := range *banner.Tags {
-			tags[i] = tag.ID 
+			tags[i] = tag.ID
 		}
 	}
 
 	return model.BannerResponse{
-		ID: banner.ID,
-		TagIds: tags,
+		ID:        banner.ID,
+		TagIds:    tags,
 		FeatureId: banner.FeatureId,
-		Content: ConvertEntityContent(banner),
-		IsActive: banner.IsActive,
+		Content:   ConvertEntityContent(banner),
+		IsActive:  banner.IsActive,
 		CreatedAt: banner.CreatedAt,
 		UpdatedAt: banner.UpdatedAt,
 	}
@@ -103,15 +100,15 @@ func FromEntityToResponse(banner entity.Banner) model.BannerResponse {
 func ConvertEntityContent(bannerEntity entity.Banner) model.BannerContent {
 	return model.BannerContent{
 		Title: bannerEntity.Content.Title,
-		Text: bannerEntity.Content.Text,
-		Url: bannerEntity.Content.Url,
+		Text:  bannerEntity.Content.Text,
+		Url:   bannerEntity.Content.Url,
 	}
 }
 
 func convertContent(content model.BannerContent) *entity.BannerContent {
 	return &entity.BannerContent{
 		Title: content.Title,
-		Text: content.Text,
-		Url: content.Url,
+		Text:  content.Text,
+		Url:   content.Url,
 	}
 }

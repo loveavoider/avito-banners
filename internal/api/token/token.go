@@ -1,12 +1,15 @@
 package token
 
 import (
+	"errors"
+	"github.com/loveavoider/avito-banners/internal/api/util"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/loveavoider/avito-banners/internal/service"
-	"github.com/loveavoider/avito-banners/merror"
 )
+
+var incorrectRole = errors.New("incorrect role")
 
 type TokenController struct {
 	TokenService service.TokenService
@@ -18,7 +21,7 @@ func (tc TokenController) GetToken(c *gin.Context) {
 		token, err := tc.TokenService.Generate(role)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &merror.MError{Message: err.Message})
+			util.WriteError(c, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -26,7 +29,7 @@ func (tc TokenController) GetToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusBadRequest, &merror.MError{Message: "incorrect role"})
+	util.WriteError(c, http.StatusBadRequest, incorrectRole)
 }
 
 func NewTockenController(tokenService service.TokenService) *TokenController {
@@ -34,4 +37,3 @@ func NewTockenController(tokenService service.TokenService) *TokenController {
 		TokenService: tokenService,
 	}
 }
-

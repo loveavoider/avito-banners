@@ -11,10 +11,15 @@ import (
 	"github.com/loveavoider/avito-banners/internal/model"
 	"github.com/loveavoider/avito-banners/internal/repository/banner/converter"
 	"github.com/loveavoider/avito-banners/internal/repository/banner/entity"
-	"github.com/loveavoider/avito-banners/merror"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+var (
+	NoFieldsToUpdate = errors.New("no fields to update")
+	DbError          = errors.New("")
+	BannersNotFound  = errors.New("")
 )
 
 type repository struct {
@@ -29,7 +34,7 @@ func NewRepository(db *gorm.DB, cache *redis.Client) *repository {
 	}
 }
 
-func (r *repository) GetBanners(getBanners model.GetBanners) (banners []model.BannerResponse, err *merror.MError) {
+func (r *repository) GetBanners(getBanners model.GetBanners) (banners []model.BannerResponse, err error) {
 	entityBanners := make([]entity.Banner, 0)
 
 	limit := -1
@@ -46,11 +51,11 @@ func (r *repository) GetBanners(getBanners model.GetBanners) (banners []model.Ba
 	res := r.db.Limit(limit).Offset(getBanners.Offset).Model(&entity.Banner{}).Preload("Tags").Find(&entityBanners, model)
 
 	if len(entityBanners) == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return banners, &merror.MError{Message: "", Status: 404}
+		return banners, BannersNotFound
 	}
 
 	if res.Error != nil {
-		return banners, &merror.MError{Message: "get all banners error"}
+		return banners, DbError
 	}
 
 	for _, banner := range entityBanners {
@@ -60,7 +65,7 @@ func (r *repository) GetBanners(getBanners model.GetBanners) (banners []model.Ba
 	return
 }
 
-func (r *repository) GetBannersByTag(getBanners model.GetBanners) (banners []model.BannerResponse, err *merror.MError) {
+func (r *repository) GetBannersByTag(getBanners model.GetBanners) (banners []model.BannerResponse, err error) {
 	entityBanners := make([]entity.Banner, 0)
 
 	limit := -1
@@ -72,18 +77,28 @@ func (r *repository) GetBannersByTag(getBanners model.GetBanners) (banners []mod
 
 	var res *gorm.DB
 
+	// TODO сделать красиво limit offset
 	if getBanners.Role == "admin" {
-		res = r.db.Limit(limit).Offset(getBanners.Offset).Where("ID IN (?)", subQuery).Preload("Tags").Find(&entityBanners)
+		res = r.db.
+			Limit(limit).
+			Offset(getBanners.Offset).
+			Where("ID IN (?)", subQuery).
+			Preload("Tags").
+			Find(&entityBanners)
 	} else {
-		res = r.db.Limit(limit).Offset(getBanners.Offset).Where("ID IN (?) AND is_active = true", subQuery).Preload("Tags").Find(&entityBanners)
+		res = r.db.
+			Limit(limit).
+			Offset(getBanners.Offset).
+			Where("ID IN (?) AND is_active = true", subQuery).
+			Preload("Tags").Find(&entityBanners)
 	}
 
 	if len(entityBanners) == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return banners, &merror.MError{Message: "", Status: 404}
+		return banners, BannersNotFound
 	}
 
 	if res.Error != nil {
-		return banners, &merror.MError{Message: "get banners by tag error"}
+		return banners, DbError
 	}
 
 	for _, banner := range entityBanners {
@@ -93,7 +108,7 @@ func (r *repository) GetBannersByTag(getBanners model.GetBanners) (banners []mod
 	return
 }
 
-func (r *repository) GetBannersByFeature(getBanners model.GetBanners) (banners []model.BannerResponse, err *merror.MError) {
+func (r *repository) GetBannersByFeature(getBanners model.GetBanners) (banners []model.BannerResponse, err error) {
 	entityBanners := make([]entity.Banner, 0)
 
 	limit := -1
@@ -110,11 +125,11 @@ func (r *repository) GetBannersByFeature(getBanners model.GetBanners) (banners [
 	res := r.db.Limit(limit).Offset(getBanners.Offset).Model(&entity.Banner{}).Preload("Tags").Find(&entityBanners, model)
 
 	if len(entityBanners) == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return banners, &merror.MError{Message: "", Status: 404}
+		return banners, BannersNotFound
 	}
 
 	if res.Error != nil {
-		return banners, &merror.MError{Message: "get banners by feature error"}
+		return banners, DbError
 	}
 
 	for _, banner := range entityBanners {
@@ -124,7 +139,7 @@ func (r *repository) GetBannersByFeature(getBanners model.GetBanners) (banners [
 	return
 }
 
-func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache bool) (banner model.BannerResponse, err *merror.MError) {
+func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache bool) (banner model.BannerResponse, err error) {
 	entityBanner := entity.Banner{}
 	ctx := context.Background()
 
@@ -151,9 +166,9 @@ func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache
 
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return banner, &merror.MError{Message: "", Status: 404}
+			return banner, BannersNotFound
 		}
-		return banner, &merror.MError{Message: "get banner error"}
+		return banner, DbError
 	}
 
 	if useCache {
@@ -170,7 +185,7 @@ func (r *repository) GetUserBannerWithTags(getBanners model.GetBanners, useCache
 	return
 }
 
-func (r *repository) GetUserBanner(getUserBanner model.GetUserBanner, useCache bool) (content model.BannerContent, err *merror.MError) {
+func (r *repository) GetUserBanner(getUserBanner model.GetUserBanner, useCache bool) (content model.BannerContent, err error) {
 	banner := entity.Banner{}
 	ctx := context.Background()
 	cacheKey := fmt.Sprintf("gUb_%d_%d", getUserBanner.FeatureId, getUserBanner.TagId)
@@ -197,10 +212,10 @@ func (r *repository) GetUserBanner(getUserBanner model.GetUserBanner, useCache b
 	if res.Error != nil {
 
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return content, &merror.MError{Message: "", Status: 404}
+			return content, BannersNotFound
 		}
 
-		return content, &merror.MError{Message: "get banner error"}
+		return content, DbError
 	}
 
 	if useCache {
@@ -221,86 +236,86 @@ func (r *repository) GetUserBanner(getUserBanner model.GetUserBanner, useCache b
 	return
 }
 
-func (r *repository) CreateBanner(bannerModel model.Banner) (id uint, err *merror.MError) {
-	bannerEntitty := converter.FromModelToEntity(bannerModel)
+func (r *repository) CreateBanner(bannerModel model.Banner) (id uint, err error) {
+	bannerEntity := converter.FromModelToEntity(bannerModel)
 
-	res := r.db.Create(&bannerEntitty)
+	res := r.db.Create(&bannerEntity)
 
 	if res.Error != nil {
-		return id, &merror.MError{Message: "create error"}
+		return id, DbError
 	}
 
-	return bannerEntitty.ID, nil
+	return bannerEntity.ID, nil
 }
 
-func (r *repository) UpdateBanner(bannerModel model.UpdateBanner) (err *merror.MError) {
+func (r *repository) UpdateBanner(bannerModel model.UpdateBanner) (err error) {
 
-	bannerEntitty, selectFields := converter.BannerUpdateFromModelToEntity(bannerModel)
+	bannerEntity, selectFields := converter.BannerUpdateFromModelToEntity(bannerModel)
 
 	if len(selectFields) == 0 {
-		return &merror.MError{Message: "Нет полей на обновление"}
+		return NoFieldsToUpdate
 	}
 
-	if bannerEntitty.Tags != nil && len(*bannerEntitty.Tags) > 0 {
-		err := r.db.Model(&bannerEntitty).Association("Tags").Replace(bannerEntitty.Tags)
+	if bannerEntity.Tags != nil && len(*bannerEntity.Tags) > 0 {
+		err := r.db.Model(&bannerEntity).Association("Tags").Replace(bannerEntity.Tags)
 
 		if err != nil {
-			return &merror.MError{Message: "update banner error"}
+			return DbError
 		}
 	}
 
-	res := r.db.Model(&bannerEntitty).Select(selectFields).Updates(bannerEntitty)
+	res := r.db.Model(&bannerEntity).Select(selectFields).Updates(bannerEntity)
 
 	if res.RowsAffected == 0 {
-		return &merror.MError{Message: "", Status: 404}
+		return BannersNotFound
 	}
 
 	if res.Error != nil {
-		return &merror.MError{Message: "update banner error"}
+		return DbError
 	}
 
 	return nil
 }
 
-func (r *repository) DeleteBanner(bannerModel model.Banner) (err *merror.MError) {
-	bannerEntitty := converter.FromModelToEntity(bannerModel)
+func (r *repository) DeleteBanner(bannerModel model.Banner) (err error) {
+	bannerEntity := converter.FromModelToEntity(bannerModel)
 
-	res := r.db.Select(clause.Associations).Delete(&bannerEntitty)
+	res := r.db.Select(clause.Associations).Delete(&bannerEntity)
 
 	if res.RowsAffected == 0 {
-		return &merror.MError{Message: "", Status: 404}
+		return BannersNotFound
 	}
 
 	if res.Error != nil {
-		return &merror.MError{Message: "delete banner error"}
+		return DbError
 	}
 
 	return nil
 }
 
-func (r *repository) CheckUnique(featureId int) (tags []uint, err *merror.MError) {
+func (r *repository) CheckUnique(featureId int) (tags []uint, err error) {
 	subQuery := r.db.Select("id").Where("feature_id = ?", featureId).Table("banners")
 	res := r.db.Distinct("tag_id").Where("banner_id IN (?)", subQuery).Table("banner_tags").Find(&tags)
 
 	if res.Error != nil {
-		return tags, &merror.MError{Message: "check unique error"}
+		return tags, DbError
 	}
 
 	return tags, nil
 }
 
-func (r *repository) CheckUniqueByFeature(bannerId uint) (tags []uint, err *merror.MError) {
-	
+func (r *repository) CheckUniqueByFeature(bannerId uint) (tags []uint, err error) {
+
 	res := r.db.Select("tag_id").Where("banner_id = ?", bannerId).Table("banner_tags").Find(&tags)
 
 	if res.Error != nil {
-		return tags, &merror.MError{Message: "check unique error"}
+		return tags, DbError
 	}
 
 	return tags, nil
 }
 
-func (r *repository) CheckUniqueByTags(tagIds []uint, bannerId uint) (isUnique bool, err *merror.MError) {
+func (r *repository) CheckUniqueByTags(tagIds []uint, bannerId uint) (isUnique bool, err error) {
 	var features []int
 
 	banner := model.Banner{ID: bannerId}
@@ -308,7 +323,7 @@ func (r *repository) CheckUniqueByTags(tagIds []uint, bannerId uint) (isUnique b
 	res := r.db.First(&banner)
 
 	if res.Error != nil {
-		return false, &merror.MError{Message: "check unique error"}
+		return false, DbError
 	}
 
 	// найти фичи по тегам
@@ -316,9 +331,9 @@ func (r *repository) CheckUniqueByTags(tagIds []uint, bannerId uint) (isUnique b
 	res = r.db.Distinct("feature_id").Where("banner_id IN (?)", subQuery).Table("banners").Find(&features)
 
 	if res.Error != nil {
-		return false, &merror.MError{Message: "check unique error"}
+		return false, DbError
 	}
-	
+
 	for _, feature := range features {
 		if feature == banner.FeatureId {
 			return false, nil

@@ -13,7 +13,6 @@ type App struct {
 	router *gin.Engine
 }
 
-// TODO add init config and server and part routes
 func NewApp() *App {
 	a := &App{}
 

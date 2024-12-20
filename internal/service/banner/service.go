@@ -3,7 +3,6 @@ package banner
 import (
 	"github.com/loveavoider/avito-banners/internal/model"
 	"github.com/loveavoider/avito-banners/internal/repository"
-	"github.com/loveavoider/avito-banners/merror"
 )
 
 type service struct {
@@ -16,17 +15,17 @@ func NewService(bannerRepository repository.BannerRepository) *service {
 	}
 }
 
-func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.BannerResponse, err *merror.MError) {
+func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.BannerResponse, err error) {
 
 	if getBanners.TagId != 0 {
 
 		if getBanners.FeatureId != 0 {
 			useCache := getBanners.Role == "user"
-			
+
 			banner, err := s.bannerRepository.GetUserBannerWithTags(getBanners, useCache)
 
 			if err != nil {
-				return banners, &merror.MError{Message: err.Message, Status: err.Status}
+				return banners, err
 			}
 
 			banners = append(banners, banner)
@@ -37,7 +36,7 @@ func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.Banne
 		banners, err = s.bannerRepository.GetBannersByTag(getBanners)
 
 		if err != nil {
-			return banners, &merror.MError{Message: err.Message, Status: err.Status}
+			return banners, err
 		}
 
 		return
@@ -47,7 +46,7 @@ func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.Banne
 		banners, err = s.bannerRepository.GetBannersByFeature(getBanners)
 
 		if err != nil {
-			return banners, &merror.MError{Message: err.Message, Status: err.Status}
+			return banners, err
 		}
 
 		return
@@ -56,13 +55,13 @@ func (s *service) GetBanners(getBanners model.GetBanners) (banners []model.Banne
 	banners, err = s.bannerRepository.GetBanners(getBanners)
 
 	if err != nil {
-		return banners, &merror.MError{Message: err.Message, Status: err.Status}
+		return banners, err
 	}
 
 	return
 }
 
-func (s *service) GetUserBanner(getUserBanner model.GetUserBanner) (content model.BannerContent, err *merror.MError) {
+func (s *service) GetUserBanner(getUserBanner model.GetUserBanner) (content model.BannerContent, err error) {
 	useCache := !getUserBanner.UseLastRevision && getUserBanner.Role == "user"
 
 	content, err = s.bannerRepository.GetUserBanner(getUserBanner, useCache)
@@ -74,22 +73,16 @@ func (s *service) GetUserBanner(getUserBanner model.GetUserBanner) (content mode
 	return content, nil
 }
 
-func (s *service) CreateBanner(banner model.Banner) (id uint, err *merror.MError) {
-	id, err = s.bannerRepository.CreateBanner(banner)
-
-	return
+func (s *service) CreateBanner(banner model.Banner) (id uint, err error) {
+	return s.bannerRepository.CreateBanner(banner)
 }
 
-func (s *service) UpdateBanner(banner model.UpdateBanner) (err *merror.MError) {
-	err = s.bannerRepository.UpdateBanner(banner)
-
-	return
+func (s *service) UpdateBanner(banner model.UpdateBanner) error {
+	return s.bannerRepository.UpdateBanner(banner)
 }
 
-func (s *service) DeleteBanner(banner model.Banner) (err *merror.MError) {
-	err = s.bannerRepository.DeleteBanner(banner)
-
-	return
+func (s *service) DeleteBanner(banner model.Banner) error {
+	return s.bannerRepository.DeleteBanner(banner)
 }
 
 func (s *service) CheckUniqueByFeature(featureId int, bannerId uint) bool {
@@ -98,7 +91,7 @@ func (s *service) CheckUniqueByFeature(featureId int, bannerId uint) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	return s.CheckUnique(featureId, tags)
 }
 
